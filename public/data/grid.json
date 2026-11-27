@@ -1,0 +1,220 @@
+{
+ "w": -141.0,
+ "s": 41.5,
+ "e": -52.0,
+ "n": 83.5,
+ "dlon": 0.1,
+ "dlat": 0.05,
+ "nx": 890,
+ "ny": 840,
+ "thresholds": [
+  10,
+  15,
+  20,
+  25,
+  30,
+  35
+ ],
+ "layers": [
+  {
+   "name": "land",
+   "type": "Uint8",
+   "offset": 0,
+   "scale": 0.00392156862745098,
+   "desc": "share of cell inside Canada"
+  },
+  {
+   "name": "prov",
+   "type": "Uint8",
+   "offset": 747600,
+   "scale": 1,
+   "desc": "StatCan province/territory code"
+  },
+  {
+   "name": "elev",
+   "type": "Int16",
+   "offset": 1495200,
+   "scale": 1,
+   "desc": "mean elevation, m"
+  },
+  {
+   "name": "slope",
+   "type": "Uint8",
+   "offset": 2990400,
+   "scale": 0.25,
+   "desc": "mean slope, deg"
+  },
+  {
+   "name": "relief",
+   "type": "Uint16",
+   "offset": 3738000,
+   "scale": 1,
+   "desc": "max - min elevation, m"
+  },
+  {
+   "name": "f10",
+   "type": "Uint8",
+   "offset": 5233200,
+   "scale": 0.00392156862745098,
+   "desc": "share of DEM pixels > 10 deg"
+  },
+  {
+   "name": "f15",
+   "type": "Uint8",
+   "offset": 5980800,
+   "scale": 0.00392156862745098,
+   "desc": "share > 15 deg"
+  },
+  {
+   "name": "f20",
+   "type": "Uint8",
+   "offset": 6728400,
+   "scale": 0.00392156862745098,
+   "desc": "share > 20 deg"
+  },
+  {
+   "name": "f25",
+   "type": "Uint8",
+   "offset": 7476000,
+   "scale": 0.00392156862745098,
+   "desc": "share > 25 deg"
+  },
+  {
+   "name": "f30",
+   "type": "Uint8",
+   "offset": 8223600,
+   "scale": 0.00392156862745098,
+   "desc": "share > 30 deg"
+  },
+  {
+   "name": "f35",
+   "type": "Uint8",
+   "offset": 8971200,
+   "scale": 0.00392156862745098,
+   "desc": "share > 35 deg"
+  },
+  {
+   "name": "burn_last",
+   "type": "Uint16",
+   "offset": 9718800,
+   "scale": 1,
+   "desc": "most recent burn year (0 none)"
+  },
+  {
+   "name": "burn5",
+   "type": "Uint8",
+   "offset": 11214000,
+   "scale": 0.00392156862745098,
+   "desc": "share burned 2021-2025"
+  },
+  {
+   "name": "burn10",
+   "type": "Uint8",
+   "offset": 11961600,
+   "scale": 0.00392156862745098,
+   "desc": "share burned 2016-2025"
+  },
+  {
+   "name": "burn20",
+   "type": "Uint8",
+   "offset": 12709200,
+   "scale": 0.00392156862745098,
+   "desc": "share burned 2006-2025"
+  },
+  {
+   "name": "hw_len",
+   "type": "Uint16",
+   "offset": 13456800,
+   "scale": 0.01,
+   "desc": "highway length in cell, km"
+  },
+  {
+   "name": "hw_d",
+   "type": "Uint16",
+   "offset": 14952000,
+   "scale": 0.1,
+   "desc": "centre to nearest highway, km"
+  },
+  {
+   "name": "hw_cls",
+   "type": "Uint8",
+   "offset": 16447200,
+   "scale": 1,
+   "desc": "best highway class in cell (10 TCH, 11 NHS, 12 major, 13 secondary)"
+  },
+  {
+   "name": "rl_len",
+   "type": "Uint16",
+   "offset": 17194800,
+   "scale": 0.01,
+   "desc": "rail track length in cell, km"
+  },
+  {
+   "name": "rl_d",
+   "type": "Uint16",
+   "offset": 18690000,
+   "scale": 0.1,
+   "desc": "centre to nearest rail track, km"
+  },
+  {
+   "name": "pl_d",
+   "type": "Uint16",
+   "offset": 20185200,
+   "scale": 0.1,
+   "desc": "centre to nearest populated place, km"
+  },
+  {
+   "name": "pc_d",
+   "type": "Uint16",
+   "offset": 21680400,
+   "scale": 0.1,
+   "desc": "centre to nearest population centre (0 inside), km"
+  },
+  {
+   "name": "pc_cls",
+   "type": "Uint8",
+   "offset": 23175600,
+   "scale": 1,
+   "desc": "class of that population centre (1 small, 2 medium, 3 large)"
+  },
+  {
+   "name": "tsm_cover",
+   "type": "Uint8",
+   "offset": 23923200,
+   "scale": 0.00392156862745098,
+   "desc": "BC TSM: share of cell land with a stability class"
+  },
+  {
+   "name": "tsm_unst",
+   "type": "Uint8",
+   "offset": 24670800,
+   "scale": 0.00392156862745098,
+   "desc": "BC TSM: share of classed terrain in class IV/IVR/V"
+  }
+ ],
+ "provinces": {
+  "10": "Newfoundland and Labrador",
+  "11": "Prince Edward Island",
+  "12": "Nova Scotia",
+  "13": "New Brunswick",
+  "24": "Quebec",
+  "35": "Ontario",
+  "46": "Manitoba",
+  "47": "Saskatchewan",
+  "48": "Alberta",
+  "59": "British Columbia",
+  "60": "Yukon",
+  "61": "Northwest Territories",
+  "62": "Nunavut"
+ },
+ "land_cells": 354256,
+ "sources": {
+  "dem": "AWS Terrain Tiles (Terrarium) z10 south of 60N / z9 north of 60N",
+  "highways": "Statistics Canada Road Network File 2023, classes 10-13",
+  "rail": "NRCan National Railway Network (NRWN), operational track excl. yards",
+  "places": "NRCan Canadian Geographical Names - populated places + Indian reserves",
+  "popctr": "Statistics Canada 2021 population centres",
+  "fire": "CWFIS National Burned Area Composite, most recent burn 1972-2025 (250 m)",
+  "calibration": "BC Terrain Stability Mapping (TSM), BC Data Catalogue"
+ }
+}

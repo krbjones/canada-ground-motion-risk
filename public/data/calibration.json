@@ -1,0 +1,84 @@
+{
+ "source": "BC Terrain Stability Mapping (WHSE_TERRESTRIAL_ECOLOGY.STE_TER_STABILITY_POLYS_SVW), BC Data Catalogue",
+ "target": "cell has >= 25% of its TSM-classed terrain in class IV, IVR or V",
+ "sample": {
+  "cells": 2116,
+  "min_cover": 0.2,
+  "base_rate": 0.541,
+  "folds": "5 spatial folds of 1-degree blocks"
+ },
+ "params": {
+  "T": 25,
+  "w": 0,
+  "win": 5,
+  "amp": 1
+ },
+ "logit": {
+  "a": 3.6609,
+  "b": 1.6836,
+  "eps": 0.001
+ },
+ "metrics": {
+  "auc_default": 0.902,
+  "auc_calibrated": 0.914,
+  "auc_full_logistic": 0.911,
+  "brier_oof": 0.1111,
+  "brier_climatology": 0.2483,
+  "auc_mass_movement_default": 0.738,
+  "auc_mass_movement_calibrated": 0.741
+ },
+ "reliability": [
+  {
+   "bin": [
+    0.0,
+    0.1
+   ],
+   "n": 477,
+   "pred": 0.018,
+   "obs": 0.042
+  },
+  {
+   "bin": [
+    0.1,
+    0.25
+   ],
+   "n": 150,
+   "pred": 0.172,
+   "obs": 0.113
+  },
+  {
+   "bin": [
+    0.25,
+    0.5
+   ],
+   "n": 233,
+   "pred": 0.378,
+   "obs": 0.322
+  },
+  {
+   "bin": [
+    0.5,
+    0.75
+   ],
+   "n": 326,
+   "pred": 0.637,
+   "obs": 0.586
+  },
+  {
+   "bin": [
+    0.75,
+    1.0
+   ],
+   "n": 930,
+   "pred": 0.885,
+   "obs": 0.904
+  }
+ ],
+ "default": {
+  "T": 25,
+  "w": 0.4,
+  "win": 10,
+  "amp": 1.0,
+  "fsat": 0.3
+ }
+}
