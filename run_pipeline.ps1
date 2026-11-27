@@ -13,5 +13,7 @@ python scripts/terrain_grid.py;                       if (-not $?) { throw "terr
 python scripts/build_stacks.py;                       if (-not $?) { throw "build_stacks failed" }
 python scripts/fetch_tsm.py;                          if (-not $?) { throw "fetch_tsm failed" }
 python scripts/calibrate.py;                          if (-not $?) { throw "calibrate failed" }
+python scripts/fetch_snow.py;                         if (-not $?) { throw "fetch_snow failed" }
+python scripts/fetch_prices.py;                       if (-not $?) { throw "fetch_prices failed" }
 python scripts/pack_grid.py;                          if (-not $?) { throw "pack_grid failed" }
 Write-Host "Done. Start the dashboard with: node server.js  ->  http://127.0.0.1:8090"

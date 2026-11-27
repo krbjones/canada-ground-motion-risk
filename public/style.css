@@ -107,3 +107,20 @@ table.classes.prov td:first-child { max-width: 150px; overflow: hidden; text-ove
 .calbox { margin-bottom: 8px; }
 table.classes.rel td { text-align: right; } table.classes.rel td:first-child { text-align: left; }
 select:disabled, input:disabled { opacity: .55; }
+/* cloud cost + snow */
+:root { --aws: #eb6834; --azure: #2a78d6; }
+@media (prefers-color-scheme: dark) { :root { --aws: #d95926; --azure: #3987e5; } }
+table.classes.cost td { text-align: right; padding: 2px 0 2px 8px; }
+table.classes.cost td:first-child { text-align: left; color: var(--muted); padding-left: 0; }
+table.classes.cost td.hd { font-weight: 600; color: var(--text); }
+table.classes.cost tr.tot td { border-top: 1px solid var(--line); padding-top: 4px; color: var(--text); }
+.bars { margin: 8px 0 4px; }
+.bar-row { display: grid; grid-template-columns: 104px 1fr 64px; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 11px; }
+.bar-lab { color: var(--muted); white-space: nowrap; }
+.bar-track { height: 10px; background: var(--bg); border-radius: 0 4px 4px 0; }
+.bar { display: block; height: 100%; border-radius: 0 4px 4px 0; }
+.bar-val { text-align: right; font-variant-numeric: tabular-nums; }
+.chart rect.snowx { fill: var(--muted); opacity: .35; }
+.swatch.snowx-sw { background: var(--muted); opacity: .35; }
+table.stacks td { white-space: nowrap; }
+table.stacks td:first-child { font-size: 11px; }

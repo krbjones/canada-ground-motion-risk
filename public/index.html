@@ -125,6 +125,10 @@
         <label class="check"><input type="checkbox" class="pf" value="1C" checked>S1C</label>
         <label class="check"><input type="checkbox" class="pf" value="1D" checked>S1D</label>
       </div>
+      <label class="check"><input type="checkbox" id="snowOn" checked> Drop acquisitions under seasonal snow</label>
+      <label id="snowPctLbl">…when more than <output id="snowPctOut">50</output>% of a frame's targets are snow-covered
+        <input type="range" id="snowPct" min="0" max="95" step="5" value="50">
+      </label>
       <div class="kpis">
         <div><b id="kTargets">–</b><span>target km²</span></div>
         <div><b id="kStacks">–</b><span>stacks (frames)</span></div>
@@ -133,9 +137,10 @@
         <div><b id="kTb">–</b><span>TB to download</span></div>
         <div><b id="kBurst">–</b><span>burst-SLCs (≈)</span></div>
       </div>
-      <div class="kpis two">
+      <div class="kpis">
         <div><b id="kBurstTb">–</b><span>TB if burst-only (≈)</span></div>
         <div><b id="kCover">–</b><span>targets covered</span></div>
+        <div><b id="kSnow">–</b><span>acquisitions dropped (snow)</span></div>
       </div>
       <label>Compute per stack-acquisition <output id="cpuOut">2</output> core-h
         <input type="range" id="cpu" min="0.25" max="10" step="0.25" value="2">
@@ -154,6 +159,24 @@
       <p class="muted small" id="stacNote"></p>
     </details>
 
+    <details class="card" data-panel="cost" open>
+      <summary><h2>Cloud cost estimate</h2></summary>
+      <div class="row">
+        <label>Pricing
+          <select id="priceModel"><option value="both">On-demand and spot</option><option value="od">On-demand only</option><option value="spot">Spot only</option></select>
+        </label>
+        <label>Keep data (months)
+          <input type="number" id="storeMonths" min="1" max="60" value="6">
+        </label>
+      </div>
+      <label>Stored volume <output id="storeMultOut">2.0</output>× the SLC download (SLCs + coregistered stacks + products)
+        <input type="range" id="storeMult" min="1" max="5" step="0.5" value="2">
+      </label>
+      <table id="costTable" class="classes cost"></table>
+      <div id="costBars" class="bars"></div>
+      <p class="muted small" id="costNote"></p>
+    </details>
+
     <details class="card" data-panel="display" open>
       <summary><h2>Display</h2></summary>
       <label>Grid layer
@@ -166,6 +189,7 @@
           <option value="relief">Relief</option>
           <option value="burn">Most recent burn year</option>
           <option value="tsm">BC terrain stability mapping (reference)</option>
+          <option value="snow">Seasonal snow (days per year, IMS)</option>
           <option value="s1">Sentinel-1 acquisitions (date window)</option>
           <option value="targets">Processing targets</option>
           <option value="none">None</option>

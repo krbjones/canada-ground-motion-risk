@@ -190,7 +190,68 @@
    "offset": 24670800,
    "scale": 0.00392156862745098,
    "desc": "BC TSM: share of classed terrain in class IV/IVR/V"
+  },
+  {
+   "name": "snow_perm",
+   "type": "Uint8",
+   "offset": 25418400,
+   "scale": 1,
+   "desc": "IMS: permanent snow/ice (no snow-free run in any complete year)"
+  },
+  {
+   "name": "sf_days",
+   "type": "Uint16",
+   "offset": 26166000,
+   "scale": 1,
+   "desc": "IMS: mean snow-free days per complete year"
+  },
+  {
+   "name": "sfs_2024",
+   "type": "Uint16",
+   "offset": 27661200,
+   "scale": 1,
+   "desc": "IMS: first day-of-year of the 2024 snow-free season (0 none)"
+  },
+  {
+   "name": "sfe_2024",
+   "type": "Uint16",
+   "offset": 29156400,
+   "scale": 1,
+   "desc": "IMS: last day-of-year of the 2024 snow-free season"
+  },
+  {
+   "name": "sfs_2025",
+   "type": "Uint16",
+   "offset": 30651600,
+   "scale": 1,
+   "desc": "IMS: first day-of-year of the 2025 snow-free season (0 none)"
+  },
+  {
+   "name": "sfe_2025",
+   "type": "Uint16",
+   "offset": 32146800,
+   "scale": 1,
+   "desc": "IMS: last day-of-year of the 2025 snow-free season"
+  },
+  {
+   "name": "sfs_2026",
+   "type": "Uint16",
+   "offset": 33642000,
+   "scale": 1,
+   "desc": "IMS: first day-of-year of the 2026 snow-free season (0 none)"
+  },
+  {
+   "name": "sfe_2026",
+   "type": "Uint16",
+   "offset": 35137200,
+   "scale": 1,
+   "desc": "IMS: last day-of-year of the 2026 snow-free season"
   }
+ ],
+ "snow_years": [
+  2024,
+  2025,
+  2026
  ],
  "provinces": {
   "10": "Newfoundland and Labrador",
@@ -215,6 +276,7 @@
   "places": "NRCan Canadian Geographical Names - populated places + Indian reserves",
   "popctr": "Statistics Canada 2021 population centres",
   "fire": "CWFIS National Burned Area Composite, most recent burn 1972-2025 (250 m)",
-  "calibration": "BC Terrain Stability Mapping (TSM), BC Data Catalogue"
+  "calibration": "BC Terrain Stability Mapping (TSM), BC Data Catalogue",
+  "snow": "NOAA/NSIDC IMS daily Northern Hemisphere snow and ice analysis, 4 km (G02156)"
  }
 }

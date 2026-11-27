@@ -37,6 +37,8 @@ fiona, pyproj, Pillow and requests.
 | InSAR stacks | `scripts/build_stacks.py` | `public/data/stacks.json` |
 | BC terrain stability (calibration) | `scripts/fetch_tsm.py` | `data/raw/tsm/tsm_polygons.csv`, `data/work/tsm_cells.npz` |
 | Calibrate susceptibility | `scripts/calibrate.py` | `public/data/calibration.json` |
+| Seasonal snow calendar | `scripts/fetch_snow.py` | `data/work/snow.npz` |
+| Cloud prices | `scripts/fetch_prices.py` | `public/data/prices.json` |
 | Pack for browser | `scripts/pack_grid.py` | `public/data/grid.bin`, `grid.json` |
 
 ## Data sources
@@ -49,6 +51,8 @@ fiona, pyproj, Pillow and requests.
 | Wildfire | CWFIS **National Burned Area Composite**, most-recent-burn raster 1972–2025, 250 m | Burned share in the last 5/10/20 seasons and last burn year per cell |
 | Populated places | NRCan **Canadian Geographical Names** (populated places + Indian reserves); StatCan **2021 population centres** | Railway points, post offices, abandoned and former localities are dropped |
 | Calibration | BC **Terrain Stability Mapping** (WHSE_TERRESTRIAL_ECOLOGY.STE_TER_STABILITY_POLYS_SVW), BC Data Catalogue WFS | 413k polygons; numeric, Roman and S/P/U class schemes normalised to I–V |
+| Snow | NOAA/NSIDC **IMS daily snow and ice analysis** (G02156), 4 km, Jan 2024 → today | Actual snow state on each acquisition date, no login needed |
+| Cloud prices | AWS public price files (EC2 on-demand, Spot feed, S3) and the **Azure Retail Prices API** | Canada Central, Linux, USD |
 | Provinces / land mask | StatCan 2021 cartographic boundary file | |
 | Sentinel-1 | **Copernicus Data Space STAC**, collection `sentinel-1-slc`, `sar:instrument_mode = IW` | Footprint, platform, relative/absolute orbit, ANX time, product size |
 
@@ -114,6 +118,31 @@ touching the window are the SLCs to download for that date. The dashboard then:
 
 Exports: a stacks CSV, the full SLC product list per frame and date (ready for a download script),
 and frame footprints as GeoJSON.
+
+**Seasonal snow.** Wet or fresh snow destroys C-band coherence, so winter passes over seasonally snow-covered
+targets add noise rather than signal. From IMS daily snow maps (2024 to today), each cell gets its snow-free
+season per year: the longest snow-free run after a 15-day running majority filter. Coastal cells use the nearest
+IMS land pixel so open water doesn't read as "snow-free". Cells count as **permanent snow/ice** (imagery
+always kept) when they have no ≥ 20-day snow-free run in any complete year, or fewer than 45 snow-free days a
+year on average (ice caps whose bare ice briefly reads snow-free). That is 22.6k cells, mostly Arctic ice caps,
+mountain icefields and the coldest high-Arctic plateaus.
+
+With **Drop acquisitions under seasonal snow** on (default), each frame-acquisition is checked against the
+snow state of that frame's target cells on that date. It is dropped when more than X % (default 50 %) of them
+are under seasonal snow. Dropped passes leave the counts, TB, CPU and cost figures, show grey in the monthly
+chart, appear as "−n" in the stack table, and are excluded from the SLC list. The S-1 acquisitions map layer
+then counts, for each cell, only the passes when that cell itself was snow-free. With default settings this
+drops 34 % of frame-acquisitions (24.3 → 16.2 TB).
+
+**Cloud cost.** CPU-hours are converted to VM-hours on like-for-like 64-vCPU / 256 GiB Linux VMs in Canada
+Central (AWS m7i.16xlarge, Azure D64s v5), on-demand and spot, using list prices fetched by
+`scripts/fetch_prices.py`. Storage is the SLC download × a multiplier (default 2×, for coregistered stacks
+and products) × months kept, at S3 Standard / Blob Hot LRS rates. SLC download from the Copernicus Data
+Space and cloud ingress are free. At default settings **storage dominates**: about $180–190 compute
+on-demand versus about $3.9–4.9k for six months of storage. So keeping time and burst-only downloads matter
+more than the VM choice. The 2 core-hours per stack-acquisition default is a light coregistration +
+interferogram budget; PS/SBAS time-series inversion can need several times that, so set it to your processor's
+measured rate.
 
 ## Limits
 

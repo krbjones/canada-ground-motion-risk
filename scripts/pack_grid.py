@@ -66,9 +66,22 @@ def main():
         src["tsm_cover"], src["tsm_unst"] = np.clip(c["tsm_cover"], 0, 1), np.where(c["tsm_cover"] > 0, c["tsm_share"], 0)
     else:
         src["tsm_cover"] = src["tsm_unst"] = np.zeros(grid.NCELL)
+    spec = list(SPEC)
+    snow_years = []
+    sn = WORK / "snow.npz"
+    if sn.exists():  # seasonal-snow calendar from scripts/fetch_snow.py
+        z = np.load(sn)
+        snow_years = [int(y) for y in z["years"]]
+        src["snow_perm"], src["sf_days"] = z["perm"], z["sf_days"]
+        spec += [("snow_perm", "u1", 1, "IMS: permanent snow/ice (no snow-free run in any complete year)"),
+                 ("sf_days", "u2", 1, "IMS: mean snow-free days per complete year")]
+        for y in snow_years:
+            src[f"sfs_{y}"], src[f"sfe_{y}"] = z[f"sf_start_{y}"], z[f"sf_end_{y}"]
+            spec += [(f"sfs_{y}", "u2", 1, f"IMS: first day-of-year of the {y} snow-free season (0 none)"),
+                     (f"sfe_{y}", "u2", 1, f"IMS: last day-of-year of the {y} snow-free season")]
     land = src["land"] >= 0.01
     blob, index, off = bytearray(), [], 0
-    for name, dt, scale, desc in SPEC:
+    for name, dt, scale, desc in spec:
         v = np.nan_to_num(np.asarray(src[name], dtype=np.float64), nan=0.0) / scale
         info = np.iinfo(np.dtype(dt))
         v = np.clip(np.round(v), info.min, info.max)
@@ -89,7 +102,7 @@ def main():
     prov = json.loads((WORK / "provinces.json").read_text(encoding="utf-8"))
     (PUB / "grid.json").write_text(json.dumps({
         "w": grid.W, "s": grid.S, "e": grid.E, "n": grid.N, "dlon": grid.DLON, "dlat": grid.DLAT, "nx": grid.NX, "ny": grid.NY,
-        "thresholds": [int(x) for x in thresh], "layers": index, "provinces": prov, "land_cells": int(land.sum()),
+        "thresholds": [int(x) for x in thresh], "layers": index, "snow_years": snow_years, "provinces": prov, "land_cells": int(land.sum()),
         "sources": {
             "dem": "AWS Terrain Tiles (Terrarium) z10 south of 60N / z9 north of 60N",
             "highways": "Statistics Canada Road Network File 2023, classes 10-13",
@@ -98,6 +111,7 @@ def main():
             "popctr": "Statistics Canada 2021 population centres",
             "fire": "CWFIS National Burned Area Composite, most recent burn 1972-2025 (250 m)",
             "calibration": "BC Terrain Stability Mapping (TSM), BC Data Catalogue",
+            "snow": "NOAA/NSIDC IMS daily Northern Hemisphere snow and ice analysis, 4 km (G02156)",
         }}, indent=1), encoding="utf-8")
     print(f"grid.bin {len(blob) / 1e6:.1f} MB, {land.sum():,} land cells")
 

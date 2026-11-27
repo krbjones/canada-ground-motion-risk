@@ -25,6 +25,8 @@ const frameRenderer = L.canvas({ pane: 'framePane', padding: 0.3 });
 
 // ------------------------------------------------------------------ data
 let CAL = null; // BC TSM calibration (scripts/calibrate.py)
+let PRICES = null; // AWS / Azure list prices (scripts/fetch_prices.py)
+const SNOW = { years: [], s: [], e: [], dayY: null, dayD: null }; // IMS seasonal-snow calendar
 const G = { meta: null, L: {}, nx: 0, ny: 0, land: null, rowArea: null };
 const S = { data: null, stacks: [], products: [], day0: 0, cells: [], bursts: [], byTrack: new Map() };
 const D = { places: [], placeCell: null, pcs: [] };
@@ -69,6 +71,7 @@ async function load() {
     fetch('data/popcentres.json').then((r) => r.json()),
   ]);
   CAL = await fetch('data/calibration.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  PRICES = await fetch('data/prices.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
   G.meta = meta; G.nx = meta.nx; G.ny = meta.ny;
   const n = meta.nx * meta.ny;
   for (const l of meta.layers) G.L[l.name] = new globalThis[`${l.type}Array`](bin, l.offset, n);
@@ -88,6 +91,7 @@ async function load() {
   S.data = stacks; S.products = stacks.products; S.stacks = stacks.stacks;
   S.day0 = Date.parse(stacks.start + 'T00:00:00Z');
   prepStacks();
+  prepSnow();
 
   const th = $('thresh');
   th.innerHTML = meta.thresholds.map((t) => `<option value="${t}"${t === 25 ? ' selected' : ''}>${t}°</option>`).join('');
@@ -269,6 +273,11 @@ function colourCell(layer, i) { // -> [r,g,b] or null (transparent)
     case 'relief': return ramp(BLUE, Math.min(1, G.L.relief[i] / 2000));
     case 'burn': { const y = G.L.burn_last[i]; return y ? ramp(VIOLET, (y - 1972) / (2025 - 1972)) : null; }
     case 'tsm': { const cv = G.L.tsm_cover ? G.L.tsm_cover[i] : 0; if (cv < 51) return null; return hex(CLASSES[clsOf(G.L.tsm_unst[i] / 255 / 0.5)].color || '#e9e7e1'); }
+    case 'snow': {
+      if (!SNOW.years.length) return null;
+      if (G.L.snow_perm[i]) return [154, 165, 177];
+      const days = 365 - G.L.sf_days[i]; return days > 3 ? ramp(BLUE, Math.min(1, days / 300)) : null;
+    }
     case 's1': { const v = M.s1A[i] + M.s1D[i]; return v ? ramp(BLUE, Math.min(1, v / s1Max())) : null; }
     case 'targets': return M.target[i] ? (M.covered[i] ? [208, 59, 59] : [120, 120, 120]) : null;
     default: return null;
@@ -281,6 +290,7 @@ function rebuildImage() {
   const g = G.meta; const layer = $('layerSel').value;
   if (!offscreen) { offscreen = document.createElement('canvas'); offscreen.width = g.nx; offscreen.height = g.ny; }
   const ctx = offscreen.getContext('2d'); const img = ctx.createImageData(g.nx, g.ny); const d = img.data;
+  if (layer === 's1') computeS1();
   if (layer === 's1') { let mx = 1; for (const i of G.land) mx = Math.max(mx, M.s1A[i] + M.s1D[i]); s1MaxCache = mx; }
   for (const i of G.land) {
     const c = colourCell(layer, i);
@@ -306,7 +316,8 @@ function updateLegend() {
   else if (layer === 'burn') el.innerHTML = `<b>Most recent burn (NBAC)</b><div class="ramp" style="background:${grad(VIOLET)}"></div><div class="ends"><span>1972</span><span>2025</span></div>`;
   else if (layer === 'tsm') el.innerHTML = '<b>BC terrain stability mapping</b><div class="muted">share of classed terrain in class IV/IVR/V<br>(cells with ≥ 20% mapped)</div>'
     + [['#e9e7e1', '< 5%'], [CLASSES[1].color, '5–12.5%'], [CLASSES[2].color, '12.5–25%'], [CLASSES[3].color, '25–37.5%'], [CLASSES[4].color, '≥ 37.5%']].map(([c, t]) => `<div class="row-sw"><span class="swatch" style="background:${c}"></span>${t}</div>`).join('');
-  else if (layer === 's1') el.innerHTML = `<b>S-1 IW acquisitions per cell</b><div class="ramp" style="background:${grad(BLUE)}"></div><div class="ends"><span>1</span><span>${s1MaxCache.toLocaleString()}</span></div><div class="muted">asc + desc, date window &amp; platforms applied</div>`;
+  else if (layer === 'snow') el.innerHTML = `<b>Seasonal snow cover (IMS, ${SNOW.years[0]}–${SNOW.years[SNOW.years.length - 1]})</b><div class="ramp" style="background:${grad(BLUE)}"></div><div class="ends"><span>0 days/yr</span><span>≥ 300</span></div><div class="row-sw"><span class="swatch" style="background:#9aa5b1"></span>Permanent snow / ice (imagery kept)</div>`;
+  else if (layer === 's1') el.innerHTML = `<b>S-1 IW acquisitions per cell</b><div class="ramp" style="background:${grad(BLUE)}"></div><div class="ends"><span>1</span><span>${s1MaxCache.toLocaleString()}</span></div><div class="muted">asc + desc, date window &amp; platforms applied${$('snowOn').checked ? ';<br>only passes when the cell is snow-free' : ''}</div>`;
   else if (layer === 'targets') el.innerHTML = '<b>Processing targets</b><div class="row-sw"><span class="swatch" style="background:#d03b3b"></span>Covered by selected frames</div><div class="row-sw"><span class="swatch" style="background:#787878"></span>Not covered (too few acquisitions)</div>';
 }
 
@@ -384,6 +395,31 @@ function nearestPc(lat, lon) {
   return best ? `near ${best.n}` : '';
 }
 
+// ------------------------------------------------------------------ seasonal snow (IMS)
+function prepSnow() {
+  SNOW.years = (G.meta.snow_years || []).filter((y) => G.L[`sfs_${y}`]);
+  if (!SNOW.years.length) { $('snowOn').checked = false; $('snowOn').disabled = true; $('snowOn').parentElement.title = 'Run scripts/fetch_snow.py to enable'; return; }
+  SNOW.s = SNOW.years.map((y) => G.L[`sfs_${y}`]); SNOW.e = SNOW.years.map((y) => G.L[`sfe_${y}`]);
+  const nd = Math.round((Date.parse(S.data.end + 'T00:00:00Z') - S.day0) / DAY) + 1;
+  SNOW.dayY = new Int8Array(nd); SNOW.dayD = new Uint16Array(nd);
+  for (let d = 0; d < nd; d++) {
+    const t = new Date(S.day0 + d * DAY); const y = t.getUTCFullYear();
+    SNOW.dayY[d] = SNOW.years.indexOf(y);
+    SNOW.dayD[d] = Math.round((t - Date.UTC(y, 0, 1)) / DAY) + 1;
+  }
+}
+// true when cell i is under SEASONAL snow on day offset d (permanent snow / ice never counts)
+function snowyAt(i, d) {
+  if (!SNOW.dayY || G.L.snow_perm[i]) return false;
+  const yi = d >= 0 && d < SNOW.dayY.length ? SNOW.dayY[d] : -1;
+  if (yi < 0) return false;
+  const st = SNOW.s[yi][i]; const en = SNOW.e[yi][i];
+  if (!st) return true; // no snow-free run that year
+  const doy = SNOW.dayD[d];
+  return doy < st || doy > en;
+}
+const doyDate = (y, doy) => (doy ? new Date(Date.UTC(y, 0, doy)).toISOString().slice(5, 10) : '–');
+
 // ------------------------------------------------------------------ processing scope
 function scopeParams() {
   const f = Date.parse($('from').value + 'T00:00:00Z'); const t = Date.parse($('to').value + 'T00:00:00Z');
@@ -391,6 +427,7 @@ function scopeParams() {
     target: $('target').value, area: $('scopeArea').value, geom: $('geom').value, minAcq: Number($('minAcq').value) || 1,
     d0: Math.round((f - S.day0) / DAY), d1: Math.round((t - S.day0) / DAY),
     pfs: new Set([...document.querySelectorAll('.pf:checked')].map((e) => e.value)), cpu: Number($('cpu').value),
+    snowOn: $('snowOn').checked && !!SNOW.dayY, snowPct: Number($('snowPct').value) / 100,
   };
 }
 
@@ -406,15 +443,21 @@ function computeScope() {
     if (vr) { const r = Math.floor(i / G.nx); const c = i % G.nx; if (r < vr.r0 || r > vr.r1 || c < vr.c0 || c > vr.c1) continue; }
     M.target[i] = 1; targetA += cellArea(i);
   }
-  // acquisitions per stack in window
-  for (const s of S.stacks) s.acqF = s.acq.filter((a) => a[0] >= p.d0 && a[0] <= p.d1 && p.pfs.has(a[1]));
-  // per-cell acquisition counts: max over frames of a track, summed over tracks
-  for (const list of S.byTrack.values()) {
-    const tmp = new Map();
-    for (const s of list) { const v = s.acqF.length; if (!v) continue; for (const i of S.cells[s.si]) if ((tmp.get(i) || 0) < v) tmp.set(i, v); }
-    const arr = list[0].dir === 'A' ? M.s1A : M.s1D;
-    for (const [i, v] of tmp) arr[i] = Math.min(65535, arr[i] + v);
+  // acquisitions per stack in the date window / platforms (acqW), then the seasonal-snow check (acqF = kept)
+  for (const s of S.stacks) {
+    s.acqW = s.acq.filter((a) => a[0] >= p.d0 && a[0] <= p.d1 && p.pfs.has(a[1]));
+    s.acqF = s.acqW; s.acqX = [];
+    if (!p.snowOn) continue;
+    const tc = []; for (const i of S.cells[s.si]) if (M.target[i] && !G.L.snow_perm[i]) tc.push(i);
+    if (!tc.length) continue; // no seasonal-snow targets in this frame: nothing to judge
+    const keep = [];
+    for (const a of s.acqW) {
+      let k = 0; for (const i of tc) if (snowyAt(i, a[0])) k++;
+      (k / tc.length > p.snowPct ? s.acqX : keep).push(a);
+    }
+    s.acqF = keep;
   }
+  M.s1Dirty = true;
   // candidate stacks and greedy set cover (fewest frames that cover the targets)
   const cand = S.stacks.filter((s) => s.acqF.length >= p.minAcq && (p.geom === 'both' || p.geom === 'best' || s.dir === p.geom));
   for (const s of cand) { let a = 0; for (const i of S.cells[s.si]) if (M.target[i]) a += cellArea(i); s.tA = a; }
@@ -469,11 +512,75 @@ function computeScope() {
   $('kBurstTb').textContent = btb.toFixed(btb < 10 ? 2 : 1);
   $('kCover').textContent = targetA ? (p.geom === 'both' ? `${pct(covAll, targetA)} both / ${pct(covA, targetA)} any` : pct(covA, targetA)) : '–';
   const coreH = stackAcq * p.cpu;
+  let nDrop = 0; for (const s of sel) nDrop += s.acqX.length;
+  $('kSnow').textContent = p.snowOn ? `${fmtInt(nDrop)} (${pct(nDrop, nDrop + stackAcq)})` : 'off';
   $('cpuLine').textContent = `≈ ${fmtInt(coreH)} core-hours (${fmtInt(coreH / 24 / 64)} days on a 64-core node) for coregistration + interferogram generation across ${sel.length} stacks.`;
   drawMonthChart(sel, p);
   drawStackTable(sel);
   drawFrames(sel);
   M.scopeParams = p;
+  M.scope = { stackAcq, tb, coreH, nSel: sel.length };
+  drawCost();
+}
+
+// Per-cell acquisition counts (max over the frames of a track, summed over tracks). With the snow filter on,
+// a cell only counts the passes on which it is itself snow-free. Computed only when the layer is shown.
+function computeS1() {
+  if (!M.s1Dirty) return;
+  const p = M.scopeParams; M.s1A.fill(0); M.s1D.fill(0);
+  for (const list of S.byTrack.values()) {
+    const tmp = new Map();
+    for (const s of list) {
+      if (!s.acqW.length) continue;
+      for (const i of S.cells[s.si]) {
+        let v = s.acqW.length;
+        if (p.snowOn && !G.L.snow_perm[i]) { v = 0; for (const a of s.acqW) if (!snowyAt(i, a[0])) v++; }
+        if ((tmp.get(i) || 0) < v) tmp.set(i, v);
+      }
+    }
+    const arr = list[0].dir === 'A' ? M.s1A : M.s1D;
+    for (const [i, v] of tmp) arr[i] = Math.min(65535, arr[i] + v);
+  }
+  M.s1Dirty = false;
+}
+
+// ------------------------------------------------------------------ cloud cost (AWS vs Azure)
+function drawCost() {
+  if (!PRICES || !M.scope) { $('costTable').innerHTML = '<tr><td class="muted">Run scripts/fetch_prices.py to enable</td></tr>'; return; }
+  const { coreH, tb } = M.scope; const vcpu = PRICES.vcpu_per_vm;
+  const months = Math.max(1, Number($('storeMonths').value) || 1); const mult = Number($('storeMult').value);
+  const mode = $('priceModel').value; const gb = tb * 1000 * mult;
+  const rows = PRICES.providers.map((pv) => {
+    const vmH = coreH / vcpu;
+    const od = vmH * pv.on_demand_hr; const sp = vmH * pv.spot_hr; const st = gb * pv.storage_gb_month * months;
+    return { pv, vmH, od, sp, st, totOd: od + st, totSp: sp + st };
+  });
+  const money = (v) => (v >= 1000 ? `$${fmtInt(v)}` : `$${v.toFixed(v < 10 ? 2 : 0)}`);
+  const line = (label, f, cls = '') => `<tr class="${cls}"><td>${label}</td>${rows.map((r) => `<td>${f(r)}</td>`).join('')}</tr>`;
+  const showOd = mode !== 'spot'; const showSp = mode !== 'od';
+  $('costTable').innerHTML = `<tr><td></td>${rows.map((r) => `<td class="hd"><span class="swatch" style="background:var(--${r.pv.id})"></span>${r.pv.name}</td>`).join('')}</tr>`
+    + line('VM (64 vCPU, 256 GiB)', (r) => esc(r.pv.vm))
+    + (showOd ? line('$/vCPU-hour, on-demand', (r) => `$${(r.pv.on_demand_hr / vcpu).toFixed(4)}`) : '')
+    + (showSp ? line('$/vCPU-hour, spot', (r) => `$${(r.pv.spot_hr / vcpu).toFixed(4)}`) : '')
+    + line('VM-hours', (r) => fmtInt(r.vmH))
+    + (showOd ? line('Compute, on-demand', (r) => money(r.od)) : '')
+    + (showSp ? line('Compute, spot', (r) => money(r.sp)) : '')
+    + line(`Storage (${fmtInt(gb / 1000)} TB × ${months} mo)`, (r) => money(r.st))
+    + (showOd ? line('<b>Total, on-demand</b>', (r) => `<b>${money(r.totOd)}</b>`, 'tot') : '')
+    + (showSp ? line('<b>Total, spot</b>', (r) => `<b>${money(r.totSp)}</b>`, 'tot') : '');
+  const bars = [];
+  for (const r of rows) {
+    if (showOd) bars.push({ label: `${r.pv.name} on-demand`, v: r.totOd, c: `var(--${r.pv.id})`, o: 1 });
+    if (showSp) bars.push({ label: `${r.pv.name} spot`, v: r.totSp, c: `var(--${r.pv.id})`, o: 0.55 });
+  }
+  const max = Math.max(1, ...bars.map((b) => b.v));
+  $('costBars').innerHTML = bars.map((b) => `<div class="bar-row" title="${b.label}: ${money(b.v)}"><span class="bar-lab">${b.label}</span>`
+    + `<span class="bar-track"><span class="bar" style="width:${(b.v / max) * 100}%;background:${b.c};opacity:${b.o}"></span></span><span class="bar-val">${money(b.v)}</span></div>`).join('');
+  const cheapest = bars.slice().sort((a, b) => a.v - b.v)[0];
+  $('costNote').innerHTML = `${fmtInt(coreH)} vCPU-hours (1 core-hour = 1 vCPU-hour) on 64-vCPU VMs; storage = ${tb.toFixed(1)} TB of SLCs × ${mult}. `
+    + `Cheapest: <b>${cheapest.label}</b>. List prices in ${PRICES.currency}, Canada Central, fetched ${PRICES.fetched}${PRICES.stale && PRICES.stale.length ? ` (stale: ${PRICES.stale.join(', ')})` : ''}. `
+    + 'Spot is the current market rate and can be interrupted, so plan for checkpointing. SLC download from the Copernicus Data Space is free, and ingress is free on both clouds. '
+    + (PRICES.providers[1].reserved_1y_hr ? `Azure 1-year reserved would be $${PRICES.providers[1].reserved_1y_hr.toFixed(2)}/h: only worth it for continuous monitoring.` : '');
 }
 
 let meanGbCache = 0;
@@ -483,30 +590,36 @@ function drawMonthChart(sel, p) {
   const start = new Date(S.day0 + p.d0 * DAY); const end = new Date(S.day0 + p.d1 * DAY);
   const months = []; const d = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
   while (d <= end) { months.push(`${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}`); d.setUTCMonth(d.getUTCMonth() + 1); }
-  const bins = new Map(months.map((m) => [m, { '1A': 0, '1C': 0, '1D': 0 }]));
-  for (const s of sel) for (const a of s.acqF) { const m = new Date(S.day0 + a[0] * DAY).toISOString().slice(0, 7); const b = bins.get(m); if (b) b[a[1]]++; }
-  const vals = months.map((m) => bins.get(m)); const max = Math.max(1, ...vals.map((v) => v['1A'] + v['1C'] + v['1D']));
+  const bins = new Map(months.map((m) => [m, { '1A': 0, '1C': 0, '1D': 0, snow: 0 }]));
+  const month = (a) => new Date(S.day0 + a[0] * DAY).toISOString().slice(0, 7);
+  for (const s of sel) {
+    for (const a of s.acqF) { const b = bins.get(month(a)); if (b) b[a[1]]++; }
+    for (const a of s.acqX) { const b = bins.get(month(a)); if (b) b.snow++; }
+  }
+  const vals = months.map((m) => bins.get(m)); const max = Math.max(1, ...vals.map((v) => v['1A'] + v['1C'] + v['1D'] + v.snow));
   const W = 340; const H = 80; const bw = W / Math.max(1, months.length);
   let svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Acquisitions per month">`;
   vals.forEach((v, k) => {
     let y = H - 12;
-    for (const pf of ['1A', '1C', '1D']) {
+    for (const pf of ['1A', '1C', '1D', 'snow']) {
       if (!v[pf]) continue;
       const h = (v[pf] / max) * (H - 16); y -= h;
-      svg += `<rect class="${PF[pf].cls}" x="${k * bw + 0.5}" y="${y}" width="${Math.max(1, bw - 1.5)}" height="${h}"><title>${months[k]} ${PF[pf].label}: ${v[pf]}</title></rect>`;
+      const cls = pf === 'snow' ? 'snowx' : PF[pf].cls; const lab = pf === 'snow' ? 'dropped (seasonal snow)' : PF[pf].label;
+      svg += `<rect class="${cls}" x="${k * bw + 0.5}" y="${y}" width="${Math.max(1, bw - 1.5)}" height="${h}"><title>${months[k]} ${lab}: ${v[pf]}</title></rect>`;
     }
   });
   svg += `<text x="0" y="${H - 1}">${months[0] || ''}</text><text x="${W}" y="${H - 1}" text-anchor="end">${months[months.length - 1] || ''}</text>`;
   svg += `<text x="${W}" y="9" text-anchor="end">max ${max}/month</text></svg>`;
   $('chartMonths').innerHTML = svg;
-  $('pfLegend').innerHTML = Object.values(PF).map((x) => `<span class="swatch" style="background:${x.color}"></span>${x.label}`).join(' &nbsp; ');
+  $('pfLegend').innerHTML = Object.values(PF).map((x) => `<span class="swatch" style="background:${x.color}"></span>${x.label}`).join(' &nbsp; ')
+    + (p.snowOn ? ' &nbsp; <span class="swatch snowx-sw"></span>dropped (seasonal snow)' : '');
 }
 
 function drawStackTable(sel) {
   const min = Number($('minAcq').value) || 1;
   const rows = sel.slice().sort((a, b) => b.tA - a.tA);
   $('stackTable').innerHTML = '<tr><th>Frame</th><th>acq</th><th>target km²</th><th>bursts</th><th>GB</th></tr>'
-    + (rows.length ? rows.map((s) => `<tr class="row-click${s.acqF.length < min ? ' thin' : ''}" data-si="${s.si}"><td><span class="dir${s.dir}">${s.dir === 'A' ? 'ASC' : 'DSC'}</span> ${s.id}</td><td>${s.acqF.length}</td><td>${fmtInt(s.tA)}</td><td>${s.nBurst}/27</td><td>${fmtInt(s.gb)}</td></tr>`).join('')
+    + (rows.length ? rows.map((s) => `<tr class="row-click${s.acqF.length < min ? ' thin' : ''}" data-si="${s.si}"><td><span class="dir${s.dir}">${s.dir === 'A' ? 'ASC' : 'DSC'}</span> ${s.id}</td><td>${s.acqF.length}${s.acqX.length ? ` <span class="muted">−${s.acqX.length}</span>` : ''}</td><td>${fmtInt(s.tA)}</td><td>${s.nBurst}/27</td><td>${fmtInt(s.gb)}</td></tr>`).join('')
       : '<tr><td colspan="5" class="muted">No targets with the current settings</td></tr>');
 }
 
@@ -576,9 +689,29 @@ function cellHtml(i, ll) {
     ${row('Rail', `${fmtKm(val('rl_d', i))}${G.L.rl_len[i] ? ` · ${val('rl_len', i).toFixed(1)} km in cell` : ''}`)}
     ${row('Population centre', `${fmtKm(val('pc_d', i))} (${['', 'small', 'medium', 'large'][G.L.pc_cls[i]] || ''})`)}
     ${row('Community / reserve', fmtKm(val('pl_d', i)))}</table>
-    <div class="sec">Sentinel-1 (window)</div><table>
-    ${row('Ascending / descending', `${M.s1A[i]} / ${M.s1D[i]}`)}</table>
+    ${snowHtml(i, row)}
+    <div class="sec">Sentinel-1 (window${M.scopeParams.snowOn ? ', snow-free passes' : ''})</div><table>
+    ${row('Ascending / descending', cellS1(i))}</table>
     <div class="muted small">${covering.length ? `Frames: ${covering.join(', ')}` : 'No frame covers this cell'}</div>`;
+}
+function cellS1(i) {
+  const out = { A: 0, D: 0 };
+  for (const list of S.byTrack.values()) {
+    let best = 0;
+    for (const s of list) {
+      if (!binHas(S.cells[s.si], i)) continue;
+      const v = M.scopeParams.snowOn ? s.acqW.filter((a) => !snowyAt(i, a[0])).length : s.acqW.length;
+      best = Math.max(best, v);
+    }
+    out[list[0].dir] += best;
+  }
+  return `${out.A} / ${out.D}`;
+}
+function snowHtml(i, row) {
+  if (!SNOW.years.length) return '';
+  if (G.L.snow_perm[i]) return `<div class="sec">Snow (IMS)</div><table>${row('Status', 'permanent snow / ice: imagery kept')}</table>`;
+  const seasons = SNOW.years.map((y, k) => row(`${y} snow-free`, SNOW.s[k][i] ? `${doyDate(y, SNOW.s[k][i])} → ${doyDate(y, SNOW.e[k][i])}` : 'none')).join('');
+  return `<div class="sec">Snow (IMS)</div><table>${row('Snow-free days / yr', fmtInt(G.L.sf_days[i]))}${seasons}</table>`;
 }
 function binHas(arr, v) { let lo = 0; let hi = arr.length - 1; while (lo <= hi) { const m = (lo + hi) >> 1; if (arr[m] === v) return true; if (arr[m] < v) lo = m + 1; else hi = m - 1; } return false; }
 
@@ -588,10 +721,10 @@ function download(name, text, type) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 $('exportStacks').onclick = () => {
-  const head = 'frame,direction,relative_orbit,frame_index,anx_start_s,anx_end_s,acquisitions,first,last,target_km2,bursts_with_targets,gb_slc';
+  const head = 'frame,direction,relative_orbit,frame_index,anx_start_s,anx_end_s,acquisitions,dropped_seasonal_snow,first,last,target_km2,bursts_with_targets,gb_slc';
   const lines = M.sel.map((s) => {
     const d = s.acqF.map((a) => a[0]); const f = d.length ? fmtDate(S.day0 + Math.min(...d) * DAY) : ''; const l = d.length ? fmtDate(S.day0 + Math.max(...d) * DAY) : '';
-    return [s.id, s.dir === 'A' ? 'ascending' : 'descending', s.ro, s.k, s.anx[0], s.anx[1], s.acqF.length, f, l, s.tA.toFixed(1), s.nBurst, s.gb.toFixed(1)].join(',');
+    return [s.id, s.dir === 'A' ? 'ascending' : 'descending', s.ro, s.k, s.anx[0], s.anx[1], s.acqF.length, s.acqX.length, f, l, s.tA.toFixed(1), s.nBurst, s.gb.toFixed(1)].join(',');
   });
   download('insar_stacks.csv', [head, ...lines].join('\n'), 'text/csv');
 };
@@ -612,11 +745,13 @@ const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = se
 const recomputeSoon = debounce(recomputeAll, 120);
 const rescopeSoon = debounce(rescope, 120);
 
-for (const [id, out, fmt] of [['fsat', 'fsatOut'], ['relief', 'reliefOut', (v) => Number(v).toFixed(1)], ['burnAmp', 'burnOut', (v) => Number(v).toFixed(2)], ['radius', 'radOut'], ['opacity', 'opOut'], ['cpu', 'cpuOut']]) {
+for (const [id, out, fmt] of [['fsat', 'fsatOut'], ['relief', 'reliefOut', (v) => Number(v).toFixed(1)], ['burnAmp', 'burnOut', (v) => Number(v).toFixed(2)], ['radius', 'radOut'], ['opacity', 'opOut'], ['cpu', 'cpuOut'], ['snowPct', 'snowPctOut'], ['storeMult', 'storeMultOut', (v) => Number(v).toFixed(1)]]) {
   $(id).addEventListener('input', () => { $(out).textContent = fmt ? fmt($(id).value) : $(id).value; });
 }
 ['thresh', 'fsat', 'relief', 'burnWin', 'burnAmp', 'radius', 'aHw', 'aRl', 'aPc', 'aPl'].forEach((id) => $(id).addEventListener(id.startsWith('a') && id.length === 3 ? 'change' : 'input', recomputeSoon));
-['target', 'scopeArea', 'geom', 'minAcq', 'from', 'to', 'cpu'].forEach((id) => $(id).addEventListener('input', rescopeSoon));
+['target', 'scopeArea', 'geom', 'minAcq', 'from', 'to', 'cpu', 'snowPct'].forEach((id) => $(id).addEventListener('input', rescopeSoon));
+$('snowOn').addEventListener('change', () => { $('snowPctLbl').classList.toggle('busy', !$('snowOn').checked); rescopeSoon(); });
+['priceModel', 'storeMonths', 'storeMult'].forEach((id) => $(id).addEventListener('input', () => { drawCost(); saveUrl(); }));
 document.querySelectorAll('.pf').forEach((e) => e.addEventListener('change', rescopeSoon));
 document.querySelectorAll('[data-months]').forEach((b) => b.addEventListener('click', () => {
   const end = new Date(S.data.end + 'T00:00:00Z'); const st = new Date(end); st.setUTCMonth(st.getUTCMonth() - Number(b.dataset.months)); st.setUTCDate(st.getUTCDate() + 1);
@@ -646,8 +781,8 @@ $('expandAll').onclick = () => { panels.forEach((p) => { p.open = true; }); save
 $('collapseAll').onclick = () => { panels.forEach((p) => { p.open = false; }); savePanels(); };
 
 // URL state
-const URL_KEYS = ['model', 'thresh', 'fsat', 'relief', 'burnWin', 'burnAmp', 'radius', 'target', 'scopeArea', 'geom', 'minAcq', 'from', 'to', 'cpu', 'layerSel', 'opacity'];
-const URL_CHECKS = ['aHw', 'aRl', 'aPc', 'aPl'];
+const URL_KEYS = ['model', 'snowPct', 'priceModel', 'storeMonths', 'storeMult', 'thresh', 'fsat', 'relief', 'burnWin', 'burnAmp', 'radius', 'target', 'scopeArea', 'geom', 'minAcq', 'from', 'to', 'cpu', 'layerSel', 'opacity'];
+const URL_CHECKS = ['aHw', 'aRl', 'aPc', 'aPl', 'snowOn'];
 function saveUrl() {
   const q = new URLSearchParams();
   URL_KEYS.forEach((k) => q.set(k, $(k).value));
@@ -662,7 +797,7 @@ function loadUrl() {
   URL_CHECKS.forEach((k) => { if (q.has(k)) $(k).checked = q.get(k) === '1'; });
   if (q.has('pf')) { const s = new Set(q.get('pf').split(',')); document.querySelectorAll('.pf').forEach((e) => { e.checked = s.has(e.value); }); }
   if (q.has('v')) { const [la, lo, z] = q.get('v').split(',').map(Number); if (Number.isFinite(z)) map.setView([la, lo], z); }
-  [['fsat', 'fsatOut'], ['radius', 'radOut'], ['opacity', 'opOut'], ['cpu', 'cpuOut']].forEach(([a, b]) => { $(b).textContent = $(a).value; });
+  [['fsat', 'fsatOut'], ['radius', 'radOut'], ['opacity', 'opOut'], ['cpu', 'cpuOut'], ['snowPct', 'snowPctOut']].forEach(([a, b]) => { $(b).textContent = $(a).value; });
   $('reliefOut').textContent = Number($('relief').value).toFixed(1); $('burnOut').textContent = Number($('burnAmp').value).toFixed(2);
 }
 

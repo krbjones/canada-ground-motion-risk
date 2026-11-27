@@ -1,0 +1,33 @@
+{
+ "fetched": "2026-11-27",
+ "currency": "USD",
+ "vcpu_per_vm": 64,
+ "stale": [],
+ "note": "List prices, Linux, Canada Central. Spot is the current market price and changes hourly.",
+ "providers": [
+  {
+   "id": "aws",
+   "name": "AWS",
+   "region": "ca-central-1 (Canada Central)",
+   "vm": "m7i.16xlarge",
+   "vm_spec": "64 vCPU, 256 GiB",
+   "on_demand_hr": 3.5952,
+   "spot_hr": 0.7619,
+   "storage": "S3 Standard",
+   "storage_gb_month": 0.025
+  },
+  {
+   "id": "azure",
+   "name": "Azure",
+   "region": "Canada Central",
+   "vm": "D64s_v5",
+   "vm_spec": "64 vCPU, 256 GiB",
+   "on_demand_hr": 3.424,
+   "spot_hr": 1.235037,
+   "reserved_1y_hr": 2.1126,
+   "reserved_3y_hr": 1.3525,
+   "storage": "Blob Hot LRS",
+   "storage_gb_month": 0.02
+  }
+ ]
+}
