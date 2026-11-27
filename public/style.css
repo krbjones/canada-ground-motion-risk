@@ -1,0 +1,109 @@
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #6b7385; --line: #e3e6ec;
+  --accent: #2563eb; --accent-text: #fff; --bar: #3b82f6; --ok: #15803d; --bad: #b91c1c;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #11141a; --panel: #181c24; --text: #e6e9ef; --muted: #8b93a5; --line: #2a303c;
+    --accent: #3b82f6; --bar: #60a5fa; --ok: #4ade80; --bad: #f87171; }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { display: flex; font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+#panel { width: 340px; flex: none; overflow-y: auto; padding: 12px; border-right: 1px solid var(--line); }
+#map { flex: 1; height: 100%; }
+header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+h1 { font-size: 17px; margin: 0; }
+h2 { font-size: 13px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+h3 { font-size: 12px; margin: 12px 0 4px; font-weight: 600; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+.card > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px; margin: -12px; padding: 12px; border-radius: 8px; user-select: none; }
+.card > summary::-webkit-details-marker { display: none; }
+.card > summary::before { content: ''; flex: none; width: 6px; height: 6px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+  transform: rotate(-45deg); transition: transform .15s; margin-right: 2px; }
+.card[open] > summary::before { transform: rotate(45deg); }
+.card[open] > summary { margin-bottom: -4px; }
+.card > summary:hover h2 { color: var(--text); }
+.card > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.card > summary h2 { margin: 0; flex: 1; }
+.card:not([open]) { padding-bottom: 12px; }
+.panel-tools { display: flex; justify-content: flex-end; gap: 6px; margin: -4px 0 8px; }
+.panel-tools button { font-size: 11px; padding: 2px 8px; }
+label { display: block; margin-bottom: 8px; color: var(--muted); }
+label.check { display: flex; gap: 6px; align-items: center; color: var(--text); }
+input[type=datetime-local], select { display: block; width: 100%; margin-top: 2px; padding: 5px 6px; border: 1px solid var(--line);
+  border-radius: 5px; background: var(--bg); color: var(--text); font: inherit; }
+input[type=range] { width: 100%; }
+button { font: inherit; padding: 5px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--text); cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.row { display: flex; gap: 8px; } .row > * { flex: 1; }
+.presets { display: flex; gap: 4px; margin-bottom: 8px; } .presets button { flex: 1; padding: 3px; }
+.muted { color: var(--muted); } .small { font-size: 11px; margin: 4px 0 0; }
+.pill { font-size: 11px; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); }
+.pill.ok { color: var(--ok); border-color: currentColor; } .pill.bad { color: var(--bad); border-color: currentColor; }
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.kpis div { background: var(--bg); border-radius: 6px; padding: 6px; text-align: center; }
+.kpis b { display: block; font-size: 16px; font-variant-numeric: tabular-nums; }
+.kpis span { font-size: 10px; color: var(--muted); }
+.chart svg { display: block; width: 100%; height: 70px; }
+.chart rect { fill: var(--bar); } .chart text { fill: var(--muted); font-size: 9px; }
+.top { margin: 0; padding-left: 18px; } .top li { display: flex; justify-content: space-between; }
+.top li span:last-child { font-variant-numeric: tabular-nums; color: var(--muted); }
+ul.top { list-style: none; padding-left: 0; }
+.top li.clickable { cursor: pointer; } .top li.clickable:hover { color: var(--accent); }
+#progress { min-height: 18px; margin-top: 6px; }
+.stack { display: flex; height: 14px; border-radius: 4px; overflow: hidden; margin: 6px 0 8px; background: var(--bg); }
+.stack span { height: 100%; }
+table.classes { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+table.classes td { padding: 2px 0; }
+table.classes td:nth-child(n+3) { text-align: right; color: var(--muted); }
+table.classes td:nth-child(3) { color: var(--text); font-weight: 600; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.kpis.two { grid-template-columns: repeat(2, 1fr); }
+.legend { position: absolute; right: 10px; bottom: 24px; z-index: 500; background: var(--panel); color: var(--text);
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 11px; }
+.legend .ramp { height: 8px; width: 160px; border-radius: 3px; margin: 3px 0; }
+.legend .ends { display: flex; justify-content: space-between; color: var(--muted); }
+.leaflet-popup-content { font-size: 12px; } .leaflet-popup-content table td { padding: 1px 6px 1px 0; }
+.leaflet-popup-content img { max-width: 220px; display: block; margin-top: 6px; }
+@media (max-width: 760px) {
+  body { flex-direction: column-reverse; }
+  #panel { width: 100%; height: 45%; border-right: 0; border-top: 1px solid var(--line); }
+  #map { height: 55%; flex: none; }
+}
+
+/* ---- Canada risk additions ---- */
+:root { --hw: #c2410c; --rl: #334155; --pc: #7c3aed; --pl: #0f766e; --frame-a: #2a78d6; --frame-d: #d95926; }
+@media (prefers-color-scheme: dark) { :root { --hw: #fb923c; --rl: #cbd5e1; --pc: #a78bfa; --pl: #2dd4bf; --frame-a: #3987e5; --frame-d: #eb6834; } }
+#panel { width: 370px; }
+input[type=date], input[type=number] { display: block; width: 100%; margin-top: 2px; padding: 4px 6px; border: 1px solid var(--line);
+  border-radius: 5px; background: var(--bg); color: var(--text); font: inherit; }
+.assets, .platforms { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px; margin-bottom: 6px; }
+.platforms { grid-template-columns: repeat(3, 1fr); }
+.assets label.check, .platforms label.check { margin-bottom: 4px; }
+.swatch.line { height: 3px; width: 14px; vertical-align: 3px; border-radius: 2px; }
+.swatch.hw { background: var(--hw); } .swatch.rl { background: var(--rl); }
+.swatch.pc { background: var(--pc); } .swatch.pl { background: var(--pl); border-radius: 50%; }
+.kpis b { font-size: 15px; }
+.tablewrap { max-height: 230px; overflow-y: auto; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 8px; }
+table.stacks { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 12px; }
+table.stacks th { position: sticky; top: 0; background: var(--panel); text-align: right; font-weight: 600; color: var(--muted); padding: 3px 6px; border-bottom: 1px solid var(--line); }
+table.stacks th:first-child, table.stacks td:first-child { text-align: left; }
+table.stacks td { text-align: right; padding: 2px 6px; border-bottom: 1px solid var(--line); }
+table.stacks tr.row-click { cursor: pointer; } table.stacks tr.row-click:hover td { color: var(--accent); }
+table.stacks tr.thin td { color: var(--muted); }
+table.stacks .dirA { color: var(--frame-a); font-weight: 600; } table.stacks .dirD { color: var(--frame-d); font-weight: 600; }
+table.classes.prov td:first-child { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legend .row-sw { display: flex; align-items: center; gap: 4px; }
+.legend .ramp { width: 180px; }
+.sources { margin-top: 6px; line-height: 1.5; }
+.chart svg { height: 80px; }
+.chart rect.s1a { fill: #2a78d6; } .chart rect.s1c { fill: #1baf7a; } .chart rect.s1d { fill: #eda100; }
+.leaflet-popup-content { min-width: 250px; }
+.leaflet-popup-content h4 { margin: 0 0 4px; font-size: 13px; }
+.leaflet-popup-content .sec { color: #6b7385; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; margin-top: 6px; }
+.busy { opacity: .6; }
+.kpis.three { grid-template-columns: repeat(3, 1fr); margin-bottom: 6px; }
+.calbox { margin-bottom: 8px; }
+table.classes.rel td { text-align: right; } table.classes.rel td:first-child { text-align: left; }
+select:disabled, input:disabled { opacity: .55; }

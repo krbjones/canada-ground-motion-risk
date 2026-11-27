@@ -1,0 +1,7 @@
+data/
+scripts/
+*.log
+.git/
+.claude/
+node_modules/
+run_pipeline.ps1

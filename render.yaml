@@ -1,0 +1,15 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# New > Blueprint > pick this repo. No API credentials are needed: every input is open data.
+services:
+  - type: web
+    name: canada-ground-motion-risk
+    runtime: docker
+    plan: free            # free sleeps after 15 min idle (~1 min cold start); "starter" ($7/mo) stays on
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /healthz
+    envVars:
+      - key: APP_USER
+        value: risk
+      - key: APP_PASSWORD
+        generateValue: true  # random password; view or change it under Environment in the Render dashboard

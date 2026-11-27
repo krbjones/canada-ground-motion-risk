@@ -1,0 +1,11 @@
+{
+  "name": "canada-ground-motion-risk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "National slope-failure susceptibility, exposure and Sentinel-1 InSAR processing-scope dashboard for Canada",
+  "main": "server.js",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.js"
+  }
+}

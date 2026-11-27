@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Canada Ground-Motion Risk</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside id="panel">
+    <header>
+      <h1>Canada Ground-Motion Risk</h1>
+      <span id="conn" class="pill">loading…</span>
+    </header>
+    <div class="panel-tools">
+      <button id="expandAll" type="button">Expand all</button>
+      <button id="collapseAll" type="button">Collapse all</button>
+    </div>
+
+    <details class="card" data-panel="hazard" open>
+      <summary><h2>Failure susceptibility</h2></summary>
+      <label>Model
+        <select id="model">
+          <option value="cal">Calibrated to BC terrain stability mapping</option>
+          <option value="heur">Heuristic (manual weights)</option>
+        </select>
+      </label>
+      <div id="calBox" class="calbox" hidden></div>
+      <div class="row">
+        <label>Steep if slope &gt;
+          <select id="thresh"></select>
+        </label>
+        <label>Saturates at <output id="fsatOut">30</output>% steep
+          <input type="range" id="fsat" min="5" max="60" step="5" value="30">
+        </label>
+      </div>
+      <label>Relief weight <output id="reliefOut">0.4</output>
+        <input type="range" id="relief" min="0" max="1" step="0.1" value="0.4">
+      </label>
+      <div class="row">
+        <label>Burn scars from last
+          <select id="burnWin"><option value="5">5 seasons</option><option value="10" selected>10 seasons</option><option value="20">20 seasons</option></select>
+        </label>
+        <label>Burn amplification ×<output id="burnOut">1.0</output>
+          <input type="range" id="burnAmp" min="0" max="3" step="0.25" value="1">
+        </label>
+      </div>
+      <p class="muted small" id="hazNote"></p>
+    </details>
+
+    <details class="card" data-panel="exposure" open>
+      <summary><h2>Exposure</h2></summary>
+      <label>Proximity radius <output id="radOut">5</output> km
+        <input type="range" id="radius" min="1" max="25" step="1" value="5">
+      </label>
+      <div class="assets">
+        <label class="check"><input type="checkbox" id="aHw" checked><span class="swatch line hw"></span>Highways</label>
+        <label class="check"><input type="checkbox" id="aRl" checked><span class="swatch line rl"></span>Rail</label>
+        <label class="check"><input type="checkbox" id="aPc" checked><span class="swatch pc"></span>Population centres</label>
+        <label class="check"><input type="checkbox" id="aPl" checked><span class="swatch pl"></span>Communities &amp; reserves</label>
+      </div>
+      <p class="muted small">Exposure = 1 at the asset, falling to 0 at the radius (nearest of the ticked assets). Risk = susceptibility × exposure.</p>
+    </details>
+
+    <details class="card" data-panel="stats" open>
+      <summary><h2>In current view <span id="viewNote" class="muted"></span></h2></summary>
+      <div class="kpis">
+        <div><b id="kLand">–</b><span>land km²</span></div>
+        <div><b id="kHigh">–</b><span>high+ susceptibility km²</span></div>
+        <div><b id="kRisk">–</b><span>high+ risk km²</span></div>
+        <div><b id="kHw">–</b><span>highway km in high+ cells</span></div>
+        <div><b id="kRl">–</b><span>rail km in high+ cells</span></div>
+        <div><b id="kPl">–</b><span>places near high+ cells</span></div>
+      </div>
+      <h3>Area by susceptibility class</h3>
+      <div id="hazBar" class="stack"></div>
+      <table id="hazTable" class="classes"></table>
+      <h3>Slope (mean per cell)</h3>
+      <div id="slopeBar" class="stack"></div>
+      <table id="slopeTable" class="classes"></table>
+      <h3>Risk hotspots <span class="muted">(1° cells, high+ risk km²)</span></h3>
+      <ol id="topCells" class="top"></ol>
+      <h3>By province / territory</h3>
+      <table id="byProv" class="classes prov"></table>
+    </details>
+
+    <details class="card" data-panel="scope" open>
+      <summary><h2>InSAR processing scope</h2></summary>
+      <div class="row">
+        <label>Target cells
+          <select id="target">
+            <option value="risk3">Risk: high + very high</option>
+            <option value="risk4">Risk: very high</option>
+            <option value="haz3">Susceptibility: high + very high</option>
+            <option value="haz4">Susceptibility: very high</option>
+          </select>
+        </label>
+        <label>Area
+          <select id="scopeArea"><option value="nation">All of Canada</option><option value="view">Current map view</option></select>
+        </label>
+      </div>
+      <div class="row">
+        <label>Geometry
+          <select id="geom">
+            <option value="both">Ascending + descending</option>
+            <option value="best">Best single geometry</option>
+            <option value="A">Ascending only</option>
+            <option value="D">Descending only</option>
+          </select>
+        </label>
+        <label>Min. acquisitions / stack
+          <input type="number" id="minAcq" min="1" max="500" value="20">
+        </label>
+      </div>
+      <div class="row">
+        <label>From<input type="date" id="from"></label>
+        <label>To<input type="date" id="to"></label>
+      </div>
+      <div class="presets">
+        <button data-months="6">6 mo</button><button data-months="12">12 mo</button><button data-months="24">24 mo</button>
+      </div>
+      <div class="platforms">
+        <label class="check"><input type="checkbox" class="pf" value="1A" checked>S1A</label>
+        <label class="check"><input type="checkbox" class="pf" value="1C" checked>S1C</label>
+        <label class="check"><input type="checkbox" class="pf" value="1D" checked>S1D</label>
+      </div>
+      <div class="kpis">
+        <div><b id="kTargets">–</b><span>target km²</span></div>
+        <div><b id="kStacks">–</b><span>stacks (frames)</span></div>
+        <div><b id="kAcq">–</b><span>stack-acquisitions</span></div>
+        <div><b id="kSlc">–</b><span>unique IW SLCs</span></div>
+        <div><b id="kTb">–</b><span>TB to download</span></div>
+        <div><b id="kBurst">–</b><span>burst-SLCs (≈)</span></div>
+      </div>
+      <div class="kpis two">
+        <div><b id="kBurstTb">–</b><span>TB if burst-only (≈)</span></div>
+        <div><b id="kCover">–</b><span>targets covered</span></div>
+      </div>
+      <label>Compute per stack-acquisition <output id="cpuOut">2</output> core-h
+        <input type="range" id="cpu" min="0.25" max="10" step="0.25" value="2">
+      </label>
+      <div id="cpuLine" class="muted small"></div>
+      <h3>Acquisitions per month <span class="muted">(selected stacks)</span></h3>
+      <div id="chartMonths" class="chart"></div>
+      <div id="pfLegend" class="muted small"></div>
+      <h3>Stacks <span class="muted">(click to zoom)</span></h3>
+      <div class="tablewrap"><table id="stackTable" class="stacks"></table></div>
+      <div class="row">
+        <button id="exportStacks">Stacks CSV</button>
+        <button id="exportSlc">SLC list</button>
+        <button id="exportGeo">Frames GeoJSON</button>
+      </div>
+      <p class="muted small" id="stacNote"></p>
+    </details>
+
+    <details class="card" data-panel="display" open>
+      <summary><h2>Display</h2></summary>
+      <label>Grid layer
+        <select id="layerSel">
+          <option value="risk">Risk (susceptibility × exposure)</option>
+          <option value="haz">Failure susceptibility</option>
+          <option value="exp">Exposure</option>
+          <option value="slope">Mean slope class</option>
+          <option value="steep">Steep share (current threshold)</option>
+          <option value="relief">Relief</option>
+          <option value="burn">Most recent burn year</option>
+          <option value="tsm">BC terrain stability mapping (reference)</option>
+          <option value="s1">Sentinel-1 acquisitions (date window)</option>
+          <option value="targets">Processing targets</option>
+          <option value="none">None</option>
+        </select>
+      </label>
+      <label>Opacity <output id="opOut">75</output>%
+        <input type="range" id="opacity" min="10" max="100" step="5" value="75">
+      </label>
+      <div class="assets">
+        <label class="check"><input type="checkbox" id="showHw"> Highways</label>
+        <label class="check"><input type="checkbox" id="showRl"> Rail</label>
+        <label class="check"><input type="checkbox" id="showPc"> Population centres</label>
+        <label class="check"><input type="checkbox" id="showFrames" checked> Selected S-1 frames</label>
+      </div>
+      <p class="muted small">Grid: 0.1° × 0.05° cells (~4–7 km). Click any cell for its full profile.</p>
+    </details>
+    <p class="muted small sources" id="sources"></p>
+  </aside>
+
+  <main id="map"></main>
+  <div id="legend" class="legend" hidden></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="app.js"></script>
+</body>
+</html>
